@@ -1,0 +1,16 @@
+{
+  "name": "브레인덤프 위클리",
+  "short_name": "브레인덤프",
+  "description": "할 일을 쏟아내고, 걸리는 시간별로 나눈 뒤, 주간 캘린더의 빈 시간에 넣는 플래너",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef2f1",
+  "theme_color": "#eef2f1",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
