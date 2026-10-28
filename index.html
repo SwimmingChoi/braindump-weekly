@@ -368,7 +368,7 @@ html, body { margin: 0; }
       <label class="field">중계 서버 주소<input id="st-relay" placeholder="https://braindump-cal.○○.workers.dev" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="field">중계 서버 비밀번호<input id="st-token" type="password" autocomplete="off"></label>
     </div>
-    <div class="backup"><span class="hint">할 일은 이 기기에만 저장돼요. 다른 기기로 옮기려면 백업을 쓰세요.</span>
+    <div class="backup"><span class="hint">중계 서버 주소와 비밀번호를 넣으면 같은 설정을 한 기기끼리 할 일과 캘린더 설정이 자동으로 동기화돼요(Worker에 KV 저장소 연결 필요). 백업은 만일을 위한 거예요.</span>
       <button class="btn" id="st-export">백업 내보내기</button>
       <label class="btn file-btn">백업 불러오기<input type="file" id="st-import" accept="application/json,.json"></label></div>
     <p class="err" id="st-err" hidden></p>
@@ -443,7 +443,7 @@ const weekKey = () => fmt(weekStart);
 const weekDates = () => Array.from({ length: 7 }, (_, i) => fmt(addDays(weekStart, i)));
 
 // ---------- state ----------
-function emptyState() { return { v: 1, tasks: [], blocks: [], ranges: { view: [7, 24], work: [9, 19] }, cals: {}, feeds: {}, relay: { url: '', token: '' }, lastSync: 0, dumpArea: 'life', hideDone: false, sample: false }; }
+function emptyState() { return { v: 1, tasks: [], blocks: [], ranges: { view: [7, 24], work: [9, 19] }, cals: {}, feeds: {}, relay: { url: '', token: '' }, lastSync: 0, meta: {}, pushedAt: 0, dataSyncAt: 0, dumpArea: 'life', hideDone: false, sample: false }; }
 function normalize(x) {
   const s = Object.assign(emptyState(), JSON.parse(JSON.stringify(x || {})));
   s.tasks = Array.isArray(s.tasks) ? s.tasks : []; s.blocks = Array.isArray(s.blocks) ? s.blocks : [];
@@ -451,6 +451,7 @@ function normalize(x) {
   s.cals = s.cals && typeof s.cals === 'object' ? s.cals : {};
   s.feeds = s.feeds && typeof s.feeds === 'object' ? s.feeds : {};
   s.relay = { url: s.relay?.url || '', token: s.relay?.token || '' };
+  s.meta = s.meta && typeof s.meta === 'object' ? s.meta : {};
   for (const c of Object.values(s.cals)) if (!APPLE.some(([n]) => n === c.color)) c.color = 'blue';
   return s;
 }
@@ -461,8 +462,11 @@ let state = loadLocal() || emptyState();
 // ---------- saving (this device only) ----------
 const status = (t) => { $('#save-status').textContent = t; };
 function save() {
-  try { localStorage.setItem(LS, JSON.stringify(state)); status('이 기기에 저장됨'); }
-  catch { status('저장 공간이 부족해 저장하지 못했어요'); }
+  stamp();
+  try { localStorage.setItem(LS, JSON.stringify(state)); }
+  catch { status('저장 공간이 부족해 저장하지 못했어요'); return; }
+  showSaved();
+  if (isDirty()) scheduleDataSync();
 }
 let undoSnap = null;
 function commit(snapshotBefore) { if (snapshotBefore) undoSnap = snapshotBefore; save(); render(); }
@@ -881,7 +885,7 @@ function calAction() {
 window.addEventListener('online', () => syncCalendars());
 window.addEventListener('offline', () => { sync = idleSync(); renderPlanner(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - (state.lastSync || 0) > 10 * 60000) syncCalendars(); });
-setInterval(() => { if (!document.hidden) syncCalendars(); }, 15 * 60000);
+setInterval(() => { if (!document.hidden) { syncCalendars(); syncData(); } }, 15 * 60000);
 
 // ---------- settings: calendar links, relay, backup ----------
 let draft = null;   // calendar rows being edited
@@ -925,7 +929,7 @@ $('#st-save').onclick = () => {
     if (prev && prev.url !== c.url) delete state.feeds[c.id];
   }
   expandCache.clear();
-  $('#settings').hidden = true; commit(); syncCalendars();
+  $('#settings').hidden = true; commit(); syncCalendars(); syncData();
 };
 $('#st-export').onclick = () => {
   const data = JSON.stringify({ app: 'braindump-weekly', at: new Date().toISOString(), state: { ...state, feeds: {} } }, null, 1);
@@ -941,8 +945,9 @@ $('#st-import').onchange = async (e) => {
     const data = JSON.parse(await file.text());
     if (data.app !== 'braindump-weekly' || !data.state) throw new Error();
     const before = snap();
-    state = normalize(data.state); expandCache.clear();
-    $('#settings').hidden = true; commit(before); toast('백업을 불러왔어요', true); syncCalendars();
+    const { meta, pushedAt, dataSyncAt, relay } = state;
+    state = normalize(data.state); Object.assign(state, { meta, pushedAt, dataSyncAt }); if (relay.url) state.relay = relay; expandCache.clear();
+    $('#settings').hidden = true; commit(before); toast('백업을 불러왔어요', true); syncCalendars(); syncData();
   } catch { $('#st-err').textContent = '브레인덤프 위클리 백업 파일이 아니에요.'; $('#st-err').hidden = false; }
 };
 
@@ -1016,7 +1021,7 @@ function toast(msg, undoable = false) {
   $('#toast-msg').textContent = msg; $('#toast-undo').hidden = !undoable; $('#toast').hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 5000);
 }
-$('#toast-undo').onclick = () => { if (undoSnap) { state = normalize(JSON.parse(undoSnap)); undoSnap = null; save(); render(); } $('#toast').hidden = true; };
+$('#toast-undo').onclick = () => { if (undoSnap) { const { meta, pushedAt, dataSyncAt } = state; state = normalize(JSON.parse(undoSnap)); Object.assign(state, { meta, pushedAt, dataSyncAt }); undoSnap = null; expandCache.clear(); save(); render(); } $('#toast').hidden = true; };
 
 // ---------- editor ----------
 let editing = null;
@@ -1189,13 +1194,111 @@ window.addEventListener('pointerup', () => {
 // refresh the "now" line and remaining-free-time every few minutes
 setInterval(() => { if (!drag && $('#editor').hidden) renderPlanner(); }, 5 * 60 * 1000);
 
+// ---------- sync between devices (through the relay's KV store) ----------
+// Every task, placed block, calendar and preference is one item stamped with when it last changed.
+// Devices merge item by item and the newer stamp wins, so edits made offline on two devices both survive.
+const SYNC_KEYS = (s) => {
+  const out = {};
+  for (const t of s.tasks) out['t:' + t.id] = t;
+  for (const b of s.blocks) out['b:' + b.id] = b;
+  for (const [id, c] of Object.entries(s.cals)) out['c:' + id] = { name: c.name, url: c.url, color: c.color, work: !!c.work, hidden: !!c.hidden };
+  out['p:prefs'] = { ranges: s.ranges, dumpArea: s.dumpArea, hideDone: !!s.hideDone };
+  return out;
+};
+// record which items changed since the last save
+function stamp() {
+  const now = Date.now(), cur = SYNC_KEYS(state), m = state.meta;
+  for (const [k, v] of Object.entries(cur)) { const j = JSON.stringify(v); if (!m[k] || m[k].d || m[k].h !== j) m[k] = { u: now, h: j }; }
+  for (const k of Object.keys(m)) if (!(k in cur) && !m[k].d) m[k] = { u: now, d: 1 };
+}
+function localDoc() {
+  const items = {};
+  for (const [k, m] of Object.entries(state.meta)) items[k] = m.d ? { u: m.u, d: 1 } : { u: m.u, v: JSON.parse(m.h) };
+  return { items };
+}
+function mergeItems(a, b) {
+  const out = { ...a };
+  for (const [k, it] of Object.entries(b || {})) if (!out[k] || it.u > out[k].u) out[k] = it;
+  return out;
+}
+// rebuild tasks/blocks/calendars from merged items, keeping the local list order where possible
+function applyItems(items) {
+  const live = Object.entries(items).filter(([, it]) => !it.d);
+  const pick = (p) => live.filter(([k]) => k.startsWith(p)).map(([k, it]) => [k.slice(2), it]);
+  const order = (arr, prev) => { const pos = new Map(prev.map((x, i) => [x.id, i])); return arr.sort((x, y) => (pos.get(x[1].v.id) ?? 1e9 + x[1].u) - (pos.get(y[1].v.id) ?? 1e9 + y[1].u)).map(([, it]) => it.v); };
+  state.tasks = order(pick('t:'), state.tasks);
+  state.blocks = order(pick('b:'), state.blocks);
+  const cals = {};
+  for (const [id, it] of pick('c:')) cals[id] = { ...it.v };
+  for (const id of Object.keys(state.feeds)) if (!cals[id]) delete state.feeds[id];
+  state.cals = cals;
+  const p = items['p:prefs'];
+  if (p && !p.d) { state.ranges = p.v.ranges || state.ranges; state.dumpArea = p.v.dumpArea || state.dumpArea; state.hideDone = !!p.v.hideDone; }
+  const m = {};
+  for (const [k, it] of Object.entries(items)) m[k] = it.d ? { u: it.u, d: 1 } : { u: it.u, h: JSON.stringify(it.v) };
+  state.meta = m;
+}
+let dataTimer = null, dataBusy = false, dataAgain = false, dataStatus = '';
+const syncReady = () => !!(state.relay.url && state.relay.token);
+const isDirty = () => Object.values(state.meta).some((m) => m.u > (state.pushedAt || 0));
+function scheduleDataSync(delay = 4000) { if (!syncReady()) return; clearTimeout(dataTimer); dataTimer = setTimeout(syncData, delay); }
+async function syncData() {
+  if (!syncReady()) { dataStatus = ''; showSaved(); return; }
+  if (!isOnline()) { dataStatus = 'offline'; showSaved(); return; }
+  if (dataBusy) { dataAgain = true; return; }
+  dataBusy = true;
+  const pushing = isDirty(), sentAt = Date.now();
+  try {
+    const r = await fetch(state.relay.url.trim().replace(/\/+$/, '') + '/data', pushing
+      ? { method: 'PUT', headers: { 'x-token': state.relay.token, 'Content-Type': 'application/json' }, body: JSON.stringify(localDoc()), cache: 'no-store' }
+      : { headers: { 'x-token': state.relay.token }, cache: 'no-store' });
+    if (r.status === 401) throw new Error('auth');
+    if (!r.ok) throw new Error(r.status === 501 || r.status === 404 ? 'setup' : 'server');
+    const remote = await r.json();
+    const before = JSON.stringify(localDoc().items);
+    const merged = mergeItems(localDoc().items, remote.items);
+    if (JSON.stringify(merged) !== before) {
+      applyItems(merged);
+      expandCache.clear();
+      try { localStorage.setItem(LS, JSON.stringify(state)); } catch {}
+      render();
+    }
+    if (pushing) state.pushedAt = sentAt;
+    state.dataSyncAt = Date.now();
+    try { localStorage.setItem(LS, JSON.stringify(state)); } catch {}
+    dataStatus = 'ok';
+  } catch (err) {
+    dataStatus = err instanceof TypeError ? 'unreachable' : err.message;
+  }
+  dataBusy = false;
+  showSaved();
+  if (dataAgain || isDirty()) { dataAgain = false; if (isDirty()) scheduleDataSync(); }
+}
+function showSaved() {
+  const t = state.dataSyncAt ? new Date(state.dataSyncAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const msg = {
+    '': '이 기기에 저장됨',
+    ok: `동기화됨 ${t}`,
+    offline: '오프라인 · 온라인이 되면 동기화돼요',
+    unreachable: '동기화 서버에 연결할 수 없어요 · 이 기기에 저장됨',
+    auth: '동기화 비밀번호가 맞지 않아요',
+    setup: '동기화 준비 안 됨 · Worker 코드와 KV 연결을 확인해 주세요',
+    server: '동기화 서버 오류 · 이 기기에 저장됨',
+  }[dataStatus] || '이 기기에 저장됨';
+  if (syncReady() && !isOnline()) { status('오프라인 · 온라인이 되면 동기화돼요'); return; }
+  status(isDirty() && dataStatus === 'ok' ? '저장 중…' : msg);
+}
+window.addEventListener('online', () => syncData());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncData(); });
+
 // ---------- boot ----------
 sync = idleSync();
 render();
-status('이 기기에 저장됨');
+stamp(); showSaved();
 navigator.storage?.persist?.().catch(() => {});
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 syncCalendars();
+syncData();
 })();
 </script>
 </body>
