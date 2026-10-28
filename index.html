@@ -168,9 +168,6 @@ button { cursor: pointer; }
 .chip.static { padding-left: 4px; }
 .chip.task-key .sw { background: var(--surface); border: 2px dashed var(--muted); }
 .chip.task-key { color: var(--muted); font-weight: 500; }
-.workband { position: absolute; left: 0; right: 0; pointer-events: none; z-index: 0;
-  background: color-mix(in srgb, var(--a-blue) 6%, transparent);
-  border-block: 1px dashed color-mix(in srgb, var(--a-blue) 30%, transparent); }
 .grid-scroll { overflow-x: auto; }
 .grid { display: grid; grid-template-columns: 46px repeat(7, minmax(86px, 1fr)); min-width: 650px; }
 .dayhead { padding: 7px 8px 6px; border-left: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); display: flex; align-items: baseline; gap: 6px; }
@@ -782,7 +779,6 @@ function renderPlanner() {
   dates.forEach((d, i) => {
     const cls = ['daycol', i >= 5 ? 'weekend' : '', d < today ? 'past' : ''].join(' ');
     html += `<div class="${cls}" data-date="${d}" style="height:${height}px">`;
-    if (i < 5 && !dayOff(d)) { const a = Math.max(ws, hs), z = Math.min(we, he); if (z > a) html += `<div class="workband" style="top:${(a - hs) * 60 * PPM}px;height:${(z - a) * 60 * PPM}px"></div>`; }
     for (const { b, col, n } of layoutCols([...blocksOn(d), ...extTimed(d)])) {
       const s = Math.max(b.start, hs * 60), e = Math.min(b.start + b.dur, he * 60);
       if (e <= s) continue;
