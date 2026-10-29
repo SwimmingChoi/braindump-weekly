@@ -32,18 +32,18 @@
 
 > 공개 캘린더 링크는 주소를 아는 사람이면 누구나 일정을 볼 수 있어요. 링크를 다른 곳에 올리지 마세요. 필요 없어지면 공개 캘린더를 끄면 링크가 사라져요.
 
-### 2. 중계 서버 만들기 (Cloudflare, 무료)
+### 2. 중계 서버 만들기 (Cloudflare, 무료 · 휴대폰으로도 가능)
 
-1. https://dash.cloudflare.com 에 가입하고 로그인해요.
-2. **Compute (Workers) → Workers & Pages → Create → Create Worker** (Hello World 템플릿), 이름은 `braindump-cal`로 하고 **Deploy**.
-3. **Edit code**를 눌러 기존 코드를 지우고 [`worker/worker.js`](worker/worker.js) 내용을 붙여 넣은 뒤 **Deploy**.
-4. Worker의 **Settings → Variables and Secrets**에서 두 개를 추가하고 저장해요.
-   - `TOKEN` (Secret): 아무 비밀번호
-   - `ALLOW_ORIGIN` (Text): `https://swimmingchoi.github.io`
-5. 동기화용 저장소를 만들어요.
-   - 왼쪽 메뉴 **Storage & databases → Workers KV → Create instance**, 이름은 `braindump-data`로 하고 만들어요.
-   - 다시 Worker(`braindump-cal`) → **Settings → Bindings → Add → KV namespace**
-   - **Variable name**은 `PLANNER`, **KV namespace**는 `braindump-data`를 고르고 **Deploy**(저장)해요.
+코드를 붙여 넣지 않고, Cloudflare가 이 저장소의 `worker` 폴더를 가져가 배포하게 연결해요. 이후 코드가 바뀌면 자동으로 다시 배포돼요.
+
+1. https://dash.cloudflare.com 에 가입하고 로그인해요. 회사망에서 막히면 휴대폰 데이터로 접속해요.
+2. **Workers & Pages → Create → Create Worker**(Hello World)로 이름을 `braindump-cal`로 만들고 **Deploy**해요. 이미 만들었다면 건너뛰어요.
+3. `braindump-cal` → **Settings → Build → Connect**에서 GitHub를 허용하고 이렇게 넣어요.
+   - 저장소 `SwimmingChoi/braindump-weekly`, 브랜치 `main`
+   - **Root directory**: `/worker`
+   - **Build command**: 비워 두기 · **Deploy command**: `npx wrangler deploy`
+4. 첫 배포가 끝나면 동기화 저장소(KV)가 자동으로 만들어져 `PLANNER`로 연결되고, `ALLOW_ORIGIN`도 [`worker/wrangler.jsonc`](worker/wrangler.jsonc)대로 들어가요.
+5. **Settings → Variables and Secrets**에서 `TOKEN`(Secret)을 추가해요. 아무 비밀번호나 정하고 따로 적어 둬요.
 6. Worker 주소(예: `https://braindump-cal.○○.workers.dev`)를 복사해 둬요.
 
 ### 3. 앱에 입력하기
