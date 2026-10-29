@@ -373,6 +373,7 @@ html, body { margin: 0; }
       <label class="btn file-btn">백업 불러오기<input type="file" id="st-import" accept="application/json,.json"></label></div>
     <p class="err" id="st-err" hidden></p>
     <div class="dialog-actions">
+      <span class="hint">버전 2026-10-29 · 동기화 지원</span>
       <button class="ghost-btn" id="st-cancel" style="margin-left:auto">닫기</button>
       <button class="primary" id="st-save">저장하고 동기화</button>
     </div>
@@ -1276,8 +1277,9 @@ async function syncData() {
 }
 function showSaved() {
   const t = state.dataSyncAt ? new Date(state.dataSyncAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const off = !state.relay.url ? '이 기기에만 저장됨 · 동기화 꺼짐' : !state.relay.token ? '동기화하려면 캘린더 설정에 비밀번호를 넣어 주세요' : '이 기기에 저장됨';
   const msg = {
-    '': '이 기기에 저장됨',
+    '': off,
     ok: `동기화됨 ${t}`,
     offline: '오프라인 · 온라인이 되면 동기화돼요',
     unreachable: '동기화 서버에 연결할 수 없어요 · 이 기기에 저장됨',

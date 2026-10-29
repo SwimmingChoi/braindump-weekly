@@ -1,6 +1,6 @@
 // Keeps the app openable offline. App files: network first (so updates arrive), cache when offline.
 // Fonts: cache first. Calendar downloads through the relay always go to the network.
-const CACHE = 'braindump-weekly-v2';
+const CACHE = 'braindump-weekly-v3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
