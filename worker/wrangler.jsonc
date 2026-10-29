@@ -1,0 +1,13 @@
+// Cloudflare deploys the relay/sync Worker from this folder (Worker → Settings → Build, root directory: worker).
+{
+  "name": "braindump-cal",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "vars": {
+    "ALLOW_ORIGIN": "https://swimmingchoi.github.io"
+  },
+  // no id: Cloudflare creates the KV namespace on the first deploy and binds it as PLANNER
+  "kv_namespaces": [
+    { "binding": "PLANNER" }
+  ]
+}
