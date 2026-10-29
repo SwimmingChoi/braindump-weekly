@@ -7,6 +7,8 @@
   "compatibility_date": "2025-09-01",
   // keep the https://braindump-cal.<subdomain>.workers.dev address the app calls
   "workers_dev": true,
+  // keep TOKEN and anything else added in the dashboard when GitHub deploys
+  "keep_vars": true,
   "vars": {
     "ALLOW_ORIGIN": "https://swimmingchoi.github.io"
   },
