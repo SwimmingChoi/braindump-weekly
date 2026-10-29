@@ -1,0 +1,17 @@
+// Cloudflare Workers Builds deploys the relay/sync Worker from this repo.
+// This copy is for a build whose root directory is the repo root; worker/wrangler.jsonc covers root directory /worker.
+// Keep the two in step.
+{
+  "name": "braindump-cal",
+  "main": "worker/worker.js",
+  "compatibility_date": "2025-09-01",
+  // keep the https://braindump-cal.<subdomain>.workers.dev address the app calls
+  "workers_dev": true,
+  "vars": {
+    "ALLOW_ORIGIN": "https://swimmingchoi.github.io"
+  },
+  // no id: Cloudflare creates the KV namespace on the first deploy and binds it as PLANNER
+  "kv_namespaces": [
+    { "binding": "PLANNER" }
+  ]
+}
