@@ -168,7 +168,7 @@ body.is-dragging-ok .t-name { cursor: grab; }
 .now-line::before { content: ""; position: absolute; left: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: var(--now); }
 .gutter, .corner, .allday-label { position: sticky; left: 0; z-index: 5; background: var(--bg); }
 
-.block { position: absolute; border-radius: 4px; padding: 3px 6px; overflow: hidden; z-index: 2; cursor: grab; touch-action: none;
+.block { position: absolute; border-radius: 4px; padding: 3px 6px; overflow: hidden; z-index: 2; cursor: pointer; touch-action: pan-x pan-y;
   font-size: 12px; line-height: 1.3; user-select: none; display: flex; flex-direction: column; gap: 1px; color: var(--bi); }
 .block .bt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .block .bm { font-family: var(--font-display); font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -187,6 +187,24 @@ body.is-dragging-ok .t-name { cursor: grab; }
 .block .resize { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
 .block:hover .resize { background: linear-gradient(transparent 3px, currentColor 3px, currentColor 4px, transparent 4px); opacity: .35; }
 .block.dragging { opacity: .3; }
+/* selection: tap a block, then drag it or its dots; a small menu hangs above it */
+.block.selected { overflow: visible; z-index: 6; cursor: grab; touch-action: none; border: 2px solid var(--bc); border-left-width: 2px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bc) 24%, transparent), 0 6px 16px rgba(0,0,0,.10); }
+.block.task.selected { border-style: solid; background: color-mix(in srgb, var(--bc) 16%, var(--surface)); }
+.block.event.selected { background: color-mix(in srgb, var(--bc) 22%, var(--surface)); }
+.h-top, .h-bot { position: absolute; left: 50%; width: 11px; height: 11px; margin-left: -6px; border-radius: 50%; background: var(--surface);
+  border: 2px solid var(--bc); cursor: ns-resize; z-index: 2; touch-action: none; }
+.h-top { top: -7px; } .h-bot { bottom: -7px; }
+.h-top::before, .h-bot::before { content: ""; position: absolute; inset: -14px; }
+.blk-menu { position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; height: 36px; padding: 0 2px;
+  background: var(--ink); border-radius: 6px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.18); z-index: 7; font-style: normal; cursor: default; }
+.blk-menu.below { bottom: auto; top: calc(100% + 9px); }
+.blk-menu.left { left: -2px; transform: none; } .blk-menu.right { left: auto; right: -2px; transform: none; }
+.blk-menu button { border: 0; background: none; color: var(--bg); padding: 0 10px; height: 36px; font-size: 12px; font-family: var(--font-body); }
+.blk-menu button + button { border-left: 1px solid color-mix(in srgb, var(--bg) 28%, transparent); }
+.blk-menu button.warn { color: #ff9a8f; }
+.task.sel .t-name { font-weight: 700; }
+.cal-tip { display: none; margin: -2px 0 10px; text-align: center; font-family: var(--font-display); font-style: italic; font-size: 13px; color: var(--muted); }
 .preview { position: absolute; left: 1px; right: 1px; border-radius: 4px; border: 1.5px solid var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent);
   z-index: 4; pointer-events: none; font-size: 12px; font-family: var(--font-display); padding: 1px 5px; }
 .ghost { position: fixed; z-index: 50; pointer-events: none; background: var(--surface); border: 1.5px dashed var(--ink); border-radius: 4px;
@@ -220,6 +238,9 @@ body.is-dragging { user-select: none; cursor: grabbing; }
   .grid-scroll { scroll-snap-type: x mandatory; scroll-padding-left: 44px; }
   .dayhead { scroll-snap-align: start; }
   .dayhead .dd { font-size: 26px; }
+  .cal-tip { display: block; }
+  .h-top, .h-bot { width: 15px; height: 15px; margin-left: -8px; } .h-top { top: -9px; } .h-bot { bottom: -9px; }
+  .blk-menu { height: 40px; } .blk-menu button { height: 40px; padding: 0 11px; font-size: 12.5px; }
 }
 
 /* settings */
@@ -285,7 +306,7 @@ body:has(.overlay:not([hidden])) { overflow: hidden; }
     <span class="mh-date" id="mh-date">weekly</span>
     <h1 class="mh-title">braindump</h1>
     <div class="mh-right">
-      <span class="wk"><button class="arrow" data-nav="-7" aria-label="지난주">←</button><span class="week-label" data-week-label></span><button class="arrow" data-nav="7" aria-label="다음 주">→</button></span>
+      <span class="wk"><button class="arrow" data-nav="-7" aria-label="지난주">←</button><span class="week-label" data-week-label></span><button class="arrow" data-nav="7" aria-label="다음 주">→</button><button class="text-btn dim" data-nav="today">today</button></span>
       <button class="text-btn dim" id="open-settings">settings</button>
     </div>
   </header>
@@ -699,7 +720,7 @@ function renderSide() {
           <span class="sizes"><span>시간</span>${['s', 'm', 'l'].map((k) => `<button data-size="${k}" class="${t.size === k ? 'on' : ''}">${SIZE_MARK[k]}</button>`).join('')}</span>
           <button data-act="del" class="warn">삭제</button></div>
         <input class="t-text" id="text-${t.id}" value="${esc(t.text)}" aria-label="할 일 이름 고치기" enterkeyhint="done"></div>` : '';
-    return `<div class="task${unsorted ? ' unsorted' : ''}${t.done ? ' is-done' : ''}" data-id="${t.id}">
+    return `<div class="task${unsorted ? ' unsorted' : ''}${t.done ? ' is-done' : ''}${b && b.id === selected ? ' sel' : ''}" data-id="${t.id}">
       <button class="tag c-${catColor(t.area)}" data-act="area" title="눌러서 캘린더 바꾸기">${esc(catName(t.area))}</button>
       <span class="t-main"><input type="checkbox" class="t-check" id="done-${t.id}" ${t.done ? 'checked' : ''} aria-label="${esc(t.text)} 완료"><button class="t-name" data-act="open" aria-expanded="${open}">${esc(t.text)}</button></span>
       ${right}${more}</div>`;
@@ -742,6 +763,7 @@ function layoutCols(items) {
 }
 let sync = { state: 'idle', msg: '', action: null };
 let placing = null;     // task waiting for a tapped slot (phone)
+let selected = null;    // block picked on the calendar (A: tap to select, then drag it or its dots)
 const narrow = () => matchMedia('(max-width: 700px)').matches;
 function setTab(t) {
   $('#layout').dataset.tab = t;
@@ -766,6 +788,7 @@ function renderPlanner() {
   let html = `${pt ? `<div class="place-banner"><span>‘<b>${esc(pt.text)}</b>’ — tap a time</span><button class="text-btn" id="place-cancel">cancel</button></div>` : ''}
     <div class="cal-head"><button class="arrow" data-nav="-7" aria-label="지난주">←</button><span class="week-label" data-week-label>${weekLabel()}</span><button class="arrow" data-nav="7" aria-label="다음 주">→</button></div>
     ${note}
+    <p class="cal-tip">tap to select · drag the dots to resize · press &amp; hold to move</p>
     <div class="grid-scroll"><div class="grid"><div class="corner"></div>`;
   dates.forEach((d, i) => {
     html += `<div class="dayhead${d === today ? ' today' : ''}${i >= 5 ? ' weekend' : ''}"><span class="dn">${DOW_EN[i]}</span><span class="dd">${parse(d).getDate()}</span></div>`;
@@ -777,7 +800,7 @@ function renderPlanner() {
   html += `<div class="gutter" style="height:${height}px">`;
   for (let h = hs; h < he; h++) html += `<span style="top:${(h - hs) * 60 * PPM}px">${h}</span>`;
   html += '</div>';
-  dates.forEach((d) => {
+  dates.forEach((d, di) => {
     html += `<div class="daycol" data-date="${d}" style="height:${height}px">`;
     for (const { b, col, n } of layoutCols([...blocksOn(d), ...extTimed(d)])) {
       const st = Math.max(b.start, hs * 60), en = Math.min(b.start + b.dur, he * 60);
@@ -793,8 +816,12 @@ function renderPlanner() {
       else kindCls = `event c-${catColor(b.lane)}`;
       const style = `top:${top + 1}px;height:${h}px;left:calc(${col * w}% + 1px);width:calc(${w}% - 2px)`;
       const idAttr = b.ext ? `data-ext="${esc(b.ext.id)}"` : `data-id="${b.id}"`;
+      const sel = !b.ext && b.id === selected;
+      if (sel) kindCls += ' selected';
+      const menu = sel ? `<div class="blk-menu${top < 52 ? ' below' : ''}${di === 0 ? ' left' : di === 6 ? ' right' : ''}"><button data-bact="detail">자세히</button>${b.kind === 'task' ? '<button data-bact="tolist">목록으로</button>' : ''}<button data-bact="del" class="warn">삭제</button></div>` : '';
+      const dots = sel ? '<span class="h-top" data-handle="top" aria-hidden="true"></span><span class="h-bot" data-handle="bot" aria-hidden="true"></span>' : '';
       html += `<div class="block ${kindCls}${h < 30 ? ' tiny' : ''}" ${idAttr} data-date="${d}" style="${style}" title="${esc(title)} ${hm(b.start)}–${hm(b.start + b.dur)}">
-        <span class="bt">${esc(title)}</span><span class="bm">${clock(b.start)} – ${clock(b.start + b.dur)}${b.repeat ? ' <span class="rep">· weekly</span>' : ''}</span>${unsorted ? '<span class="q" aria-label="시간 미정">?</span>' : ''}<span class="resize" aria-hidden="true"></span></div>`;
+        <span class="bt">${esc(title)}</span><span class="bm">${clock(b.start)} – ${clock(b.start + b.dur)}${b.repeat ? ' <span class="rep">· weekly</span>' : ''}</span>${unsorted ? '<span class="q" aria-label="시간 미정">?</span>' : ''}${dots}${menu}</div>`;
     }
     if (d === today) { const m = nowMin(); if (m >= hs * 60 && m <= he * 60) html += `<div class="now-line" style="top:${(m - hs * 60) * PPM}px"></div>`; }
     html += '</div>';
@@ -810,8 +837,18 @@ $('#planner').addEventListener('click', (e) => {
   if (e.target.id === 'cal-action') { calAction(); return; }
   if (e.target.id === 'place-cancel') { placing = null; render(); if (narrow()) setTab('list'); return; }
   const ad = e.target.closest('.ad[data-ext]');
-  if (ad) showExt(ad.dataset.ext);
+  if (ad) { showExt(ad.dataset.ext); return; }
+  const bact = e.target.closest('[data-bact]')?.dataset.bact;
+  if (bact) {
+    const el = e.target.closest('.block'), b = blockById(el.dataset.id); if (!b) return;
+    if (bact === 'detail') { openEditor({ id: b.id, date: el.dataset.date }); return; }
+    const before = snap();
+    if (bact === 'tolist') { state.blocks = state.blocks.filter((x) => x.id !== b.id); selected = null; commit(before); toast('할 일을 목록으로 되돌렸어요', true); }
+    else if (b.kind === 'task') { state.tasks = state.tasks.filter((t) => t.id !== b.taskId); state.blocks = state.blocks.filter((x) => x.id !== b.id); selected = null; commit(before); toast('할 일을 삭제했어요', true); }
+    else { state.blocks = state.blocks.filter((x) => x.id !== b.id); selected = null; commit(before); toast('일정을 삭제했어요', true); }
+  }
 });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected && $('#editor').hidden) { selected = null; render(); } });
 document.addEventListener('click', (e) => {
   const nav = e.target.closest('[data-nav]'); if (!nav) return;
   goWeek(nav.dataset.nav === 'today' ? mondayOf(new Date()) : addDays(weekStart, +nav.dataset.nav));
@@ -1103,11 +1140,13 @@ document.addEventListener('pointerdown', (e) => {
   } else if (blk && blk.dataset.ext) {
     drag = { ...base, type: 'ext', ext: blk.dataset.ext };
   } else if (blk) {
+    if (e.target.closest('.blk-menu')) return;          // menu buttons handle their own clicks
     const b = blockById(blk.dataset.id);
-    const isResize = !!e.target.closest('.resize');
-    drag = { ...base, type: isResize ? 'resize' : 'move', id: b.id, len: b.dur, date: blk.dataset.date, el: blk,
-      offY: e.clientY - blk.getBoundingClientRect().top, label: blk.querySelector('.bt').textContent };
-    e.preventDefault();
+    const handle = e.target.closest('[data-handle]')?.dataset.handle;
+    const isSel = selected === b.id;
+    drag = { ...base, type: !isSel ? 'select' : handle === 'top' ? 'resize-top' : handle ? 'resize' : 'move', id: b.id, len: b.dur, start0: b.start,
+      date: blk.dataset.date, el: blk, t0: Date.now(), offY: e.clientY - blk.getBoundingClientRect().top, label: blk.querySelector('.bt').textContent };
+    if (isSel) e.preventDefault();
   } else if (col) {
     drag = { ...base, type: 'new', col };
     if (!base.touch) e.preventDefault();
@@ -1129,6 +1168,10 @@ function updateDrag() {
     const col = colAt(d.x, d.y);
     if (col) { const off = d.type === 'move' ? d.offY : 8; d.target = { col, start: clampStart(col, minuteAt(col, d.y, off), d.len) }; showPreview(col, d.target.start, d.len); }
     else { d.target = null; showPreview(null); }
+  } else if (d.type === 'resize-top') {
+    const end = d.start0 + d.len, hs = state.ranges.view[0] * 60;
+    d.newStart = Math.max(hs, Math.min(end - SNAP, d.start0 + Math.round(((d.y - d.y0) / PPM) / SNAP) * SNAP));
+    showPreview(d.el.closest('.daycol'), d.newStart, end - d.newStart);
   } else if (d.type === 'resize') {
     const b = blockById(d.id), he = state.ranges.view[1] * 60;
     d.newLen = Math.max(SNAP, Math.min(he - b.start, d.len + Math.round(((d.y - d.y0) / PPM) / SNAP) * SNAP));
@@ -1144,7 +1187,9 @@ window.addEventListener('pointermove', (e) => {
   drag.x = e.clientX; drag.y = e.clientY;
   if (!drag.started) {
     if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
-    if ((drag.type === 'new' && drag.touch) || drag.type === 'ext') { drag = null; return; }
+    if ((drag.type === 'new' && drag.touch) || drag.type === 'ext' || drag.type === 'select') { drag = null; return; }
+    // on touch a selected block moves only after a press-and-hold, so a quick swipe never shifts it
+    if (drag.type === 'move' && drag.touch && Date.now() - drag.t0 < 280) { drag = null; return; }
     drag.started = true; document.body.classList.add('is-dragging');
     if (drag.type === 'task' || drag.type === 'move') { ghost = document.createElement('div'); ghost.className = 'ghost'; ghost.textContent = drag.label; document.body.appendChild(ghost); }
     if (drag.el && drag.type === 'move') drag.el.classList.add('dragging');
@@ -1159,7 +1204,9 @@ window.addEventListener('pointerup', () => {
   if (!d.started) {
     cleanupDrag();
     if (d.type === 'ext') showExt(d.ext);
-    else if (d.type === 'move' || d.type === 'resize') openEditor({ id: d.id, date: d.date });
+    else if (d.type === 'select') { selected = d.id; render(); }
+    else if (d.type === 'move' || d.type === 'resize' || d.type === 'resize-top') { /* tap on the selected block: keep it selected */ }
+    else if (d.type === 'new' && selected && !placing) { selected = null; render(); }
     else if (d.type === 'new' && placing) {
       const t = taskById(placing); placing = null;
       if (t) {
@@ -1183,6 +1230,8 @@ window.addEventListener('pointerup', () => {
     const b = blockById(d.id);
     Object.assign(b, { date: d.target.col.dataset.date, start: d.target.start });
     cleanupDrag(); commit();
+  } else if (d.type === 'resize-top' && d.newStart != null) {
+    const b = blockById(d.id), end = d.start0 + d.len; b.start = d.newStart; b.dur = end - d.newStart; cleanupDrag(); commit();
   } else if (d.type === 'resize' && d.newLen) {
     const b = blockById(d.id); b.dur = d.newLen; cleanupDrag(); commit();
   } else if (d.type === 'new' && d.range) {
