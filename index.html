@@ -25,7 +25,7 @@
   --a-red: #FF3B30; --a-orange: #FF9500; --a-yellow: #E0B400; --a-green: #34C759; --a-blue: #007AFF; --a-purple: #AF52DE; --a-brown: #A2845E;
   --a-butter: #D9B13B; --a-sage: #8E9A72; --a-rose: #C27A70;
   --danger: #b4322a; --now: #c4473a;
-  --font-display: "EB Garamond", "Iowan Old Style", "Apple Garamond", Georgia, serif;
+  --font-display: "EB Garamond", "Gowun Batang", "AppleMyungjo", Georgia, serif;
   --font-body: "Gowun Batang", "AppleMyungjo", "Nanum Myeongjo", serif;
   --hourpx: 60px;
 }
@@ -92,10 +92,10 @@ button { cursor: pointer; }
 
 /* brain dump */
 .dump { display: flex; flex-direction: column; gap: 8px; }
-#dump { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 4px 0 8px; resize: vertical; min-height: 36px;
-  font-family: var(--font-display); font-style: italic; font-size: 17px; line-height: 1.5; outline: none; }
+#dump { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 4px 0 8px; resize: none; min-height: 36px; overflow: hidden;
+  font-family: var(--font-display); font-size: 16px; line-height: 1.6; outline: none; }
 #dump:focus { border-bottom-color: var(--ink); }
-#dump::placeholder { color: var(--faint); }
+#dump::placeholder { color: var(--faint); font-style: italic; font-size: 17px; }
 .dump-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
 .dump-row .text-btn { margin-left: auto; font-size: 16px; }
 .cal-pick { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--bi); font-size: 13px; }
@@ -138,7 +138,7 @@ button { cursor: pointer; }
 .more-acts button.on { color: var(--bg); background: var(--ink); text-decoration: none; padding: 2px 6px; border-radius: 3px; }
 .more-acts .sizes { display: inline-flex; align-items: baseline; gap: 8px; }
 .more-acts .done-btn { text-decoration: none; border: 1px solid var(--ink); border-radius: 4px; padding: 6px 12px; }
-.list-empty { grid-column: 1 / -1; margin: 0; font-family: var(--font-display); font-style: italic; font-size: 16px; color: var(--muted); }
+.list-empty { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--muted); }
 body.is-dragging-ok .t-name { cursor: grab; }
 @media (hover: hover) and (pointer: fine) { .t-name { cursor: grab; touch-action: none; } }
 .side-foot { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -748,7 +748,7 @@ function renderSide() {
   }
   const doneCount = state.tasks.filter((t) => t.done).length;
   if (doneCount) html += `<span class="gap"></span><span></span><span style="grid-column: span 2"><button class="link-btn" data-act="clear-done">완료한 ${doneCount}개 지우기</button></span>`;
-  if (!state.tasks.length) html = '<p class="list-empty">Nothing yet. 위에 적고 add를 눌러 보세요.</p>';
+  if (!state.tasks.length) html = '<p class="list-empty">아직 할 일이 없어요. 위에 적고 add를 눌러 보세요.</p>';
   $('#buckets').innerHTML = html;
 }
 
@@ -999,9 +999,11 @@ $('#dump-add').onclick = () => {
   const lines = $('#dump').value.split('\n').map(parseLine).filter(Boolean);
   if (!lines.length) { $('#dump').focus(); return; }
   for (const l of lines) state.tasks.push({ id: uid(), text: l.text, size: l.size, area: l.area || resolveCat(state.dumpArea), done: false });
-  $('#dump').value = '';
+  $('#dump').value = ''; fitDump();
   commit(); toast(`${lines.length}개를 목록에 추가했어요`);
 };
+const fitDump = () => { const t = $('#dump'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+$('#dump').addEventListener('input', fitDump);
 $('#dump').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $('#dump-add').click(); } });
 $('#buckets').addEventListener('click', (e) => {
   if (e.target.closest('[data-act="clear-done"]')) {
