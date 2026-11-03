@@ -788,7 +788,6 @@ function renderPlanner() {
   let html = `${pt ? `<div class="place-banner"><span>‘<b>${esc(pt.text)}</b>’ — tap a time</span><button class="text-btn" id="place-cancel">cancel</button></div>` : ''}
     <div class="cal-head"><button class="arrow" data-nav="-7" aria-label="지난주">←</button><span class="week-label" data-week-label>${weekLabel()}</span><button class="arrow" data-nav="7" aria-label="다음 주">→</button></div>
     ${note}
-    <p class="cal-tip">hold a block to select · hold an empty time to add</p>
     <div class="grid-scroll"><div class="grid"><div class="corner"></div>`;
   dates.forEach((d, i) => {
     html += `<div class="dayhead${d === today ? ' today' : ''}${i >= 5 ? ' weekend' : ''}"><span class="dn">${DOW_EN[i]}</span><span class="dd">${parse(d).getDate()}</span></div>`;
