@@ -55,7 +55,10 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; }
 :root { padding-bottom: env(safe-area-inset-bottom, 0px); }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14.5px; line-height: 1.5; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14.5px; line-height: 1.5;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+/* only text you can edit is selectable; a press-and-hold anywhere else selects a block or adds an event, not words */
+input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -847,6 +850,7 @@ $('#planner').addEventListener('click', (e) => {
     else { state.blocks = state.blocks.filter((x) => x.id !== b.id); selected = null; commit(before); toast('일정을 삭제했어요', true); }
   }
 });
+document.addEventListener('contextmenu', (e) => { if (!e.target.closest('input, textarea, select')) e.preventDefault(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected && $('#editor').hidden) { selected = null; render(); } });
 document.addEventListener('click', (e) => {
   const nav = e.target.closest('[data-nav]'); if (!nav) return;
