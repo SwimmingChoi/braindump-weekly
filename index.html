@@ -788,7 +788,7 @@ function renderPlanner() {
   let html = `${pt ? `<div class="place-banner"><span>‘<b>${esc(pt.text)}</b>’ — tap a time</span><button class="text-btn" id="place-cancel">cancel</button></div>` : ''}
     <div class="cal-head"><button class="arrow" data-nav="-7" aria-label="지난주">←</button><span class="week-label" data-week-label>${weekLabel()}</span><button class="arrow" data-nav="7" aria-label="다음 주">→</button></div>
     ${note}
-    <p class="cal-tip">tap to select · drag the dots to resize · press &amp; hold to move</p>
+    <p class="cal-tip">hold a block to select · hold an empty time to add</p>
     <div class="grid-scroll"><div class="grid"><div class="corner"></div>`;
   dates.forEach((d, i) => {
     html += `<div class="dayhead${d === today ? ' today' : ''}${i >= 5 ? ' weekend' : ''}"><span class="dn">${DOW_EN[i]}</span><span class="dd">${parse(d).getDate()}</span></div>`;
@@ -854,13 +854,19 @@ document.addEventListener('click', (e) => {
   goWeek(nav.dataset.nav === 'today' ? mondayOf(new Date()) : addDays(weekStart, +nav.dataset.nav));
 });
 $('#open-settings').onclick = () => openSettings();
+const HOLD_MS = 450;   // press-and-hold that selects a block or adds an event
+function showBlock(id, date) {
+  const b = blockById(id); if (!b) return;
+  const t = b.kind === 'task' ? taskById(b.taskId) : null;
+  toast(`${t ? t.text : b.title} · ${catName(b.lane)} · ${DOW[dowOf(date || b.date)]} ${clock(b.start)}–${clock(b.start + b.dur)}${t ? ' · 할 일' : ''}${b.repeat ? ' · 매주' : ''}`);
+}
 function showExt(id) {
   const e = weekEvents().find((x) => x.id === id); if (!e) return;
   const cal = state.cals[e.cal]?.name || '캘린더';
   let when;
   if (e.allDay) { const endIncl = addDaysStr(e.e, -1); when = endIncl > e.s ? `${+e.s.slice(5, 7)}/${+e.s.slice(8)}–${+endIncl.slice(5, 7)}/${+endIncl.slice(8)} 종일` : '종일'; }
   else { const s = new Date(e.s), z = new Date(e.e); when = `${hm(s.getHours() * 60 + s.getMinutes())}–${hm(z.getHours() * 60 + z.getMinutes())}`; }
-  toast(`${e.title} · ${cal} · ${when}${e.free ? ' · 바쁨 아님' : ''} — 수정은 아이폰 캘린더에서 해 주세요`);
+  toast(`${e.title} · ${cal} · ${when}${e.free ? ' · 바쁨 아님' : ''}`);
 }
 
 // ---------- calendar sync ----------
@@ -1144,12 +1150,25 @@ document.addEventListener('pointerdown', (e) => {
     const b = blockById(blk.dataset.id);
     const handle = e.target.closest('[data-handle]')?.dataset.handle;
     const isSel = selected === b.id;
-    drag = { ...base, type: !isSel ? 'select' : handle === 'top' ? 'resize-top' : handle ? 'resize' : 'move', id: b.id, len: b.dur, start0: b.start,
+    drag = { ...base, type: !isSel ? 'press' : handle === 'top' ? 'resize-top' : handle ? 'resize' : 'move', id: b.id, len: b.dur, start0: b.start,
       date: blk.dataset.date, el: blk, t0: Date.now(), offY: e.clientY - blk.getBoundingClientRect().top, label: blk.querySelector('.bt').textContent };
     if (isSel) e.preventDefault();
+    else {
+      const d0 = drag;
+      d0.timer = setTimeout(() => { if (drag === d0) { drag = null; selected = d0.id; render(); } }, HOLD_MS);
+    }
   } else if (col) {
     drag = { ...base, type: 'new', col };
     if (!base.touch) e.preventDefault();
+    if (!placing && !selected) {
+      const d0 = drag;
+      d0.timer = setTimeout(() => {
+        if (drag !== d0 || d0.started) return;
+        cleanupDrag();
+        const date = col.dataset.date, st = clampStart(col, Math.floor(minuteAt(col, d0.y0, 0) / 30) * 30, 60);
+        openEditor({ lane: laneAt(date, st), date, start: st, dur: 60 });
+      }, HOLD_MS);
+    }
   }
 });
 function dragFrame() {
@@ -1187,7 +1206,8 @@ window.addEventListener('pointermove', (e) => {
   drag.x = e.clientX; drag.y = e.clientY;
   if (!drag.started) {
     if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
-    if ((drag.type === 'new' && drag.touch) || drag.type === 'ext' || drag.type === 'select') { drag = null; return; }
+    if ((drag.type === 'new' && drag.touch) || drag.type === 'ext' || drag.type === 'press') { clearTimeout(drag.timer); drag = null; return; }
+    clearTimeout(drag.timer);
     // on touch a selected block moves only after a press-and-hold, so a quick swipe never shifts it
     if (drag.type === 'move' && drag.touch && Date.now() - drag.t0 < 280) { drag = null; return; }
     drag.started = true; document.body.classList.add('is-dragging');
@@ -1197,14 +1217,15 @@ window.addEventListener('pointermove', (e) => {
   }
   updateDrag();
 });
-window.addEventListener('pointercancel', cleanupDrag);
+window.addEventListener('pointercancel', () => { if (drag) clearTimeout(drag.timer); cleanupDrag(); });
 window.addEventListener('pointerup', () => {
   if (!drag) return;
   const d = drag;
+  clearTimeout(d.timer);
   if (!d.started) {
     cleanupDrag();
     if (d.type === 'ext') showExt(d.ext);
-    else if (d.type === 'select') { selected = d.id; render(); }
+    else if (d.type === 'press') showBlock(d.id, d.date);
     else if (d.type === 'move' || d.type === 'resize' || d.type === 'resize-top') { /* tap on the selected block: keep it selected */ }
     else if (d.type === 'new' && selected && !placing) { selected = null; render(); }
     else if (d.type === 'new' && placing) {
@@ -1217,7 +1238,7 @@ window.addEventListener('pointerup', () => {
         commit(); toast(`${DOW[dowOf(b.date)]} ${hm(start)}에 넣었어요`);
       }
     }
-    else if (d.type === 'new') { const date = d.col.dataset.date, s = clampStart(d.col, Math.floor(minuteAt(d.col, d.y0, 0) / 30) * 30, 60); openEditor({ lane: laneAt(date, s), date, start: s, dur: 60 }); }
+    else if (d.type === 'new') toast('빈 시간을 꾹 누르면 일정을 추가해요');
     return;
   }
   updateDrag();
