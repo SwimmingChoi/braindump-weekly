@@ -857,7 +857,7 @@ document.addEventListener('click', (e) => {
   goWeek(nav.dataset.nav === 'today' ? mondayOf(new Date()) : addDays(weekStart, +nav.dataset.nav));
 });
 $('#open-settings').onclick = () => openSettings();
-const HOLD_MS = 450;   // press-and-hold that selects a block or adds an event
+const HOLD_MS = 650;   // press-and-hold that selects a block or adds an event
 function showBlock(id, date) {
   const b = blockById(id); if (!b) return;
   const t = b.kind === 'task' ? taskById(b.taskId) : null;
@@ -1212,7 +1212,7 @@ window.addEventListener('pointermove', (e) => {
     if ((drag.type === 'new' && drag.touch) || drag.type === 'ext' || drag.type === 'press') { clearTimeout(drag.timer); drag = null; return; }
     clearTimeout(drag.timer);
     // on touch a selected block moves only after a press-and-hold, so a quick swipe never shifts it
-    if (drag.type === 'move' && drag.touch && Date.now() - drag.t0 < 280) { drag = null; return; }
+    if (drag.type === 'move' && drag.touch && Date.now() - drag.t0 < 400) { drag = null; return; }
     drag.started = true; document.body.classList.add('is-dragging');
     if (drag.type === 'task' || drag.type === 'move') { ghost = document.createElement('div'); ghost.className = 'ghost'; ghost.textContent = drag.label; document.body.appendChild(ghost); }
     if (drag.el && drag.type === 'move') drag.el.classList.add('dragging');
