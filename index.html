@@ -126,6 +126,8 @@ button { cursor: pointer; }
 .more-acts button { border: 0; background: none; padding: 4px 0; font-size: 12.5px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .more-acts button.warn { color: var(--danger); }
 .more-acts button.on { color: var(--bg); background: var(--ink); text-decoration: none; padding: 2px 6px; border-radius: 3px; }
+.more-acts .sizes { display: inline-flex; align-items: baseline; gap: 8px; }
+.more-acts .done-btn { text-decoration: none; border: 1px solid var(--ink); border-radius: 4px; padding: 6px 12px; }
 .list-empty { grid-column: 1 / -1; margin: 0; font-family: var(--font-display); font-style: italic; font-size: 16px; color: var(--muted); }
 body.is-dragging-ok .t-name { cursor: grab; }
 @media (hover: hover) and (pointer: fine) { .t-name { cursor: grab; touch-action: none; } }
@@ -215,7 +217,7 @@ body.is-dragging { user-select: none; cursor: grabbing; }
 }
 
 /* settings */
-.dialog.wide { width: min(680px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+.dialog.wide { width: min(680px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .dialog .hint a { color: var(--ink); }
 .st-section { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
 .st-cals { display: flex; flex-direction: column; gap: 8px; }
@@ -224,7 +226,12 @@ body.is-dragging { user-select: none; cursor: grabbing; }
 .st-row .check { font-size: 12px; white-space: nowrap; }
 .st-ranges { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
 .st-ranges label { display: inline-flex; align-items: center; gap: 4px; }
-@media (max-width: 600px) { .st-row { grid-template-columns: 1fr auto auto; } .st-row .st-url { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 600px) {
+  .st-row { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+  .st-row .st-name { flex: 1 1 0; } .st-row .st-color { flex: none; }
+  .st-row .st-url { flex: 1 1 100%; order: 3; }
+  .st-row .check { order: 4; } .st-row .st-del { order: 5; margin-left: auto; }
+}
 .backup.st-section { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
 .backup .hint { flex: 1 1 100%; }
 .file-btn { position: relative; overflow: hidden; cursor: pointer; }
@@ -241,13 +248,28 @@ body.is-dragging { user-select: none; cursor: grabbing; }
 .check { display: flex; align-items: center; gap: 7px; font-size: 13px; }
 .check input { accent-color: var(--ink); }
 .dialog .err { color: var(--danger); font-size: 12.5px; margin: 0; }
-.dialog-actions { display: flex; gap: 8px; align-items: center; }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dialog-actions button, .btn, .primary, .outline-btn, .text-btn, .more-acts button { white-space: nowrap; }
+.field, .field input, .field select { min-width: 0; width: 100%; }
+body:has(.overlay:not([hidden])) { overflow: hidden; }
 .dialog-actions .ghost-btn { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 8px 14px; }
 .dialog-actions .danger { border: 0; background: none; color: var(--danger); padding: 7px 0; margin-right: auto; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 70;
   background: var(--ink); color: var(--bg); border-radius: 4px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; font-size: 13px; max-width: calc(100% - 32px); }
-.toast button { border: 0; background: none; color: var(--bg); text-decoration: underline; text-underline-offset: 3px; }
+.toast button { border: 0; background: none; color: var(--bg); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex: none; }
 @media (prefers-reduced-motion: no-preference) { .toast { animation: rise .18s ease-out; } @keyframes rise { from { transform: translate(-50%, 8px); opacity: 0; } } }
+/* phone: dialogs become full-screen sheets that scroll on their own */
+@media (max-width: 700px) {
+  .overlay { padding: 0; place-items: stretch; }
+  .dialog, .dialog.wide { width: 100%; max-height: none; height: 100%; border: 0; border-radius: 0; box-shadow: none;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+    overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+  .row2 { grid-template-columns: minmax(0, 1fr); }
+  .dialog-actions .hint { flex: 1 1 100%; order: 3; }
+  .dialog-actions .ghost-btn, .dialog-actions .primary { flex: 1 1 0; padding-block: 12px; }
+  .toast { left: 16px; right: 16px; transform: none; max-width: none; }
+  .toast { animation: none; } .toast span { flex: 1; }
+}
 </style>
 </head>
 <body>
@@ -666,11 +688,12 @@ function renderSide() {
     else if (b) right = `<span class="t-when">${DOW_EN[dowOf(b.date)][0].toUpperCase() + DOW_EN[dowOf(b.date)].slice(1)} ${clock(b.start)}</span>`;
     else right = '<span class="t-when dim">—</span>';
     const more = open ? `<div class="t-more">
-        <input class="t-text" id="text-${t.id}" value="${esc(t.text)}" aria-label="할 일 이름">
-        <div class="more-acts"><span>시간</span>${['s', 'm', 'l'].map((k) => `<button data-size="${k}" class="${t.size === k ? 'on' : ''}">${SIZE_MARK[k]}</button>`).join('')}
-          <button data-act="done">${t.done ? '되돌리기' : '완료'}</button>
+        <div class="more-acts">
+          <button data-act="done" class="done-btn">${t.done ? '되돌리기' : '✓ 완료'}</button>
           <button data-act="place">${placing === t.id ? '배치 취소' : b ? '옮기기' : '캘린더에 넣기'}</button>
-          <button data-act="del" class="warn">삭제</button></div></div>` : '';
+          <span class="sizes"><span>시간</span>${['s', 'm', 'l'].map((k) => `<button data-size="${k}" class="${t.size === k ? 'on' : ''}">${SIZE_MARK[k]}</button>`).join('')}</span>
+          <button data-act="del" class="warn">삭제</button></div>
+        <input class="t-text" id="text-${t.id}" value="${esc(t.text)}" aria-label="할 일 이름 고치기" enterkeyhint="done"></div>` : '';
     return `<div class="task${unsorted ? ' unsorted' : ''}${t.done ? ' is-done' : ''}" data-id="${t.id}">
       <button class="tag c-${catColor(t.area)}" data-act="area" title="눌러서 캘린더 바꾸기">${esc(catName(t.area))}</button>
       <button class="t-name" data-act="open" aria-expanded="${open}">${esc(t.text)}</button>
@@ -697,7 +720,6 @@ function renderSide() {
   if (doneCount) html += `<span class="gap"></span><span></span><span style="grid-column: span 2"><button class="link-btn" data-act="clear-done">완료한 ${doneCount}개 지우기</button></span>`;
   if (!state.tasks.length) html = '<p class="list-empty">Nothing yet. 위에 적고 add를 눌러 보세요.</p>';
   $('#buckets').innerHTML = html;
-  if (openTask) document.getElementById('text-' + openTask)?.focus({ preventScroll: true });
 }
 
 // ---------- render: planner ----------
@@ -959,6 +981,10 @@ $('#buckets').addEventListener('change', (e) => {
   const t = taskById(row.dataset.id); if (!t) return;
   if (e.target.classList.contains('t-text')) { const v = e.target.value.trim(); if (v) { t.text = v; const b = blockForTask(t.id); if (b) b.title = v; } commit(); }
 });
+document.addEventListener('focusin', (e) => {
+  if (!e.target.matches('input, textarea, select')) return;
+  setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+});
 $('#buckets').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('t-text')) e.target.blur(); });
 
 $('#autofill').onclick = () => {
@@ -1206,6 +1232,22 @@ function applyItems(items) {
   for (const [k, it] of Object.entries(items)) m[k] = it.d ? { u: it.u, d: 1 } : { u: it.u, h: JSON.stringify(it.v) };
   state.meta = m;
 }
+// the same public link added on two devices: keep one (lowest id, so every device picks the same) and move its tasks over
+function dedupeCals() {
+  const seen = new Map(); let changed = false;
+  for (const id of Object.keys(state.cals).sort()) {
+    const key = (state.cals[id].url || '').trim().replace(/^webcal:/i, 'https:').toLowerCase();
+    if (!key) continue;
+    const keep = seen.get(key);
+    if (!keep) { seen.set(key, id); continue; }
+    for (const t of state.tasks) if (t.area === id) t.area = keep;
+    for (const b of state.blocks) if (b.lane === id) b.lane = keep;
+    if (state.dumpArea === id) state.dumpArea = keep;
+    delete state.cals[id]; delete state.feeds[id]; changed = true;
+  }
+  if (changed) expandCache.clear();
+  return changed;
+}
 let dataTimer = null, dataBusy = false, dataAgain = false, dataStatus = '';
 const syncReady = () => !!(state.relay.url && state.relay.token);
 const isDirty = () => Object.values(state.meta).some((m) => m.u > (state.pushedAt || 0));
@@ -1227,6 +1269,7 @@ async function syncData() {
     const merged = mergeItems(localDoc().items, remote.items);
     if (JSON.stringify(merged) !== before) {
       applyItems(merged);
+      if (dedupeCals()) { stamp(); scheduleDataSync(); }
       expandCache.clear();
       try { localStorage.setItem(LS, JSON.stringify(state)); } catch {}
       render();
@@ -1243,7 +1286,7 @@ async function syncData() {
   if (dataAgain || isDirty()) { dataAgain = false; if (isDirty()) scheduleDataSync(); }
 }
 function showSaved() {
-  const t = state.dataSyncAt ? new Date(state.dataSyncAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const t = state.dataSyncAt ? (() => { const d = new Date(state.dataSyncAt); return clock(d.getHours() * 60 + d.getMinutes()); })() : '';
   const off = !state.relay.url ? 'saved on this device' : !state.relay.token ? '동기화하려면 settings에서 비밀번호를 넣어 주세요' : 'saved on this device';
   const msg = {
     '': off,
@@ -1262,8 +1305,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sync
 
 // ---------- boot ----------
 sync = idleSync();
+const deduped = dedupeCals();
 render();
 stamp(); showSaved();
+if (deduped) save();
 navigator.storage?.persist?.().catch(() => {});
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 syncCalendars();
