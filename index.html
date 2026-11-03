@@ -111,6 +111,12 @@ button { cursor: pointer; }
 .task { display: contents; }
 .tag { justify-self: start; width: 44px; border: 0; padding: 1px 0; border-radius: 4px; text-align: center; font-size: 11px; line-height: 1.5;
   background: color-mix(in srgb, var(--bc) 22%, transparent); color: var(--bi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-main { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.t-check { flex: none; appearance: none; -webkit-appearance: none; width: 17px; height: 17px; margin: 0; border: 1px solid var(--muted); border-radius: 3px;
+  background: var(--surface); cursor: pointer; position: relative; top: 3px; }
+.t-check:checked { background: var(--ink); border-color: var(--ink); }
+.t-check:checked::after { content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 9px; border: solid var(--bg); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.t-check::before { content: ""; position: absolute; inset: -13px; }   /* 44px touch target */
 .t-name { min-width: 0; border: 0; background: none; padding: 0; text-align: left; font-family: var(--font-body); font-size: 14.5px; color: var(--ink); overflow-wrap: anywhere; }
 .task.unsorted .t-name { font-style: italic; color: var(--muted); }
 .task.is-done .t-name { color: var(--faint); text-decoration: line-through; }
@@ -689,14 +695,13 @@ function renderSide() {
     else right = '<span class="t-when dim">—</span>';
     const more = open ? `<div class="t-more">
         <div class="more-acts">
-          <button data-act="done" class="done-btn">${t.done ? '되돌리기' : '✓ 완료'}</button>
           <button data-act="place">${placing === t.id ? '배치 취소' : b ? '옮기기' : '캘린더에 넣기'}</button>
           <span class="sizes"><span>시간</span>${['s', 'm', 'l'].map((k) => `<button data-size="${k}" class="${t.size === k ? 'on' : ''}">${SIZE_MARK[k]}</button>`).join('')}</span>
           <button data-act="del" class="warn">삭제</button></div>
         <input class="t-text" id="text-${t.id}" value="${esc(t.text)}" aria-label="할 일 이름 고치기" enterkeyhint="done"></div>` : '';
     return `<div class="task${unsorted ? ' unsorted' : ''}${t.done ? ' is-done' : ''}" data-id="${t.id}">
       <button class="tag c-${catColor(t.area)}" data-act="area" title="눌러서 캘린더 바꾸기">${esc(catName(t.area))}</button>
-      <button class="t-name" data-act="open" aria-expanded="${open}">${esc(t.text)}</button>
+      <span class="t-main"><input type="checkbox" class="t-check" id="done-${t.id}" ${t.done ? 'checked' : ''} aria-label="${esc(t.text)} 완료"><button class="t-name" data-act="open" aria-expanded="${open}">${esc(t.text)}</button></span>
       ${right}${more}</div>`;
   };
   let html = '';
@@ -979,6 +984,7 @@ $('#buckets').addEventListener('click', (e) => {
 $('#buckets').addEventListener('change', (e) => {
   const row = e.target.closest('.task'); if (!row) return;
   const t = taskById(row.dataset.id); if (!t) return;
+  if (e.target.classList.contains('t-check')) { t.done = e.target.checked; commit(); return; }
   if (e.target.classList.contains('t-text')) { const v = e.target.value.trim(); if (v) { t.text = v; const b = blockForTask(t.id); if (b) b.title = v; } commit(); }
 });
 document.addEventListener('focusin', (e) => {
