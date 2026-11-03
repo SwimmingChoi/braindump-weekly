@@ -59,6 +59,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-body); 
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 /* only text you can edit is selectable; a press-and-hold anywhere else selects a block or adds an event, not words */
 input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+input[type="time"], input[type="date"], input[type="checkbox"], select { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -1165,11 +1166,11 @@ document.addEventListener('pointerdown', (e) => {
     if (!base.touch) e.preventDefault();
     if (!placing && !selected) {
       const d0 = drag;
+      // the hold marks the slot; the editor opens only once the finger lifts, so nothing pops up under it
       d0.timer = setTimeout(() => {
         if (drag !== d0 || d0.started) return;
-        cleanupDrag();
-        const date = col.dataset.date, st = clampStart(col, Math.floor(minuteAt(col, d0.y0, 0) / 30) * 30, 60);
-        openEditor({ lane: laneAt(date, st), date, start: st, dur: 60 });
+        d0.held = Math.max(state.ranges.view[0] * 60, clampStart(col, Math.floor(minuteAt(col, d0.y0, 0) / 30) * 30, 60));
+        showPreview(col, d0.held, 60);
       }, HOLD_MS);
     }
   }
@@ -1206,6 +1207,7 @@ function updateDrag() {
 }
 window.addEventListener('pointermove', (e) => {
   if (!drag) return;
+  if (drag.held != null) return;          // a held slot stays put until release
   drag.x = e.clientX; drag.y = e.clientY;
   if (!drag.started) {
     if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
@@ -1225,6 +1227,11 @@ window.addEventListener('pointerup', () => {
   if (!drag) return;
   const d = drag;
   clearTimeout(d.timer);
+  if (d.held != null) {
+    const col = d.col; cleanupDrag();
+    openEditor({ lane: laneAt(col.dataset.date, d.held), date: col.dataset.date, start: d.held, dur: 60 });
+    return;
+  }
   if (!d.started) {
     cleanupDrag();
     if (d.type === 'ext') showExt(d.ext);
